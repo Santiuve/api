@@ -82,4 +82,15 @@ class UserController extends Controller
         $pwd = hash('sha256', $password);
         return response()->json($signup, 200);
     }
+    public function update(Request $request){
+        $token = $request->header('Authorization');
+        $jwtAuth = new \JwtAuth();
+        $checkToken = $jwtAuth->checkToken($token);
+        if($checkToken){
+            echo "<h1>Login correcto</h1>";
+        }else{
+            echo "<h1>Login incorrecto</h1>";
+        }
+        die();
+    }
 }
