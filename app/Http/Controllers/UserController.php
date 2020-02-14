@@ -3,18 +3,21 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use App\User;
 
 class UserController extends Controller
 {
-    public function pruebas(Request $request){
+    public function pruebas(Request $request)
+    {
         return "Acción de pruebas de USER-CONTROLLER";
     }
-    public function register(Request $request){
+    public function register(Request $request)
+    {
         $json = $request->input('json', null);
         $params = json_decode($json);
         $params_array = json_decode($json, true);
-        if(!empty($params) && !empty($params_array)){
+        if (!empty($params) && !empty($params_array)) {
             $params_array = array_map('trim', $params_array);
             $validate = \Validator::make($params_array, [
                 'name' => 'required|alpha',
@@ -22,19 +25,19 @@ class UserController extends Controller
                 'email' => 'required|email|unique:users',
                 'password' => 'required'
             ]);
-            if($validate->fails()){
+            if ($validate->fails()) {
                 $data = array(
                     'status' => 'error',
                     'code' => 404,
                     'message' => 'El usuario no se ha creado',
                     'errors' => $validate->errors()
                 );
-            }else{
+            } else {
                 $pwd = hash('sha256', $params->password);
                 $user = new User();
-                $user->name = $params_array['name']; 
-                $user->surname = $params_array['surname']; 
-                $user->email = $params_array['email']; 
+                $user->name = $params_array['name'];
+                $user->surname = $params_array['surname'];
+                $user->email = $params_array['email'];
                 $user->password = $pwd;
                 $user->role = 'ROLE_USER';
                 $user->save();
@@ -45,7 +48,7 @@ class UserController extends Controller
                     'user' => $user
                 );
             }
-        }else{
+        } else {
             $data = array(
                 'status' => 'error',
                 'code' => 404,
@@ -54,7 +57,8 @@ class UserController extends Controller
         }
         return response()->json($data, $data['code']);
     }
-    public function login(Request $request){
+    public function login(Request $request)
+    {
         $jwtAuth = new \JwtAuth();
         $json = $request->input('json', null);
         $params = json_decode($json);
@@ -63,34 +67,35 @@ class UserController extends Controller
             'email' => 'required|email',
             'password' => 'required'
         ]);
-        if($validate->fails()){
+        if ($validate->fails()) {
             $signup = array(
                 'status' => 'error',
                 'code' => '404',
                 'message' => 'El usuario no se ha podido identificar',
                 'errors' => $validate->errors()
             );
-        }else{
+        } else {
             $pwd = hash('sha256', $params->password);
             $signup = $jwtAuth->signup($params->email, $pwd);
-            if(!empty($params->getToken)){
+            if (!empty($params->getToken)) {
                 $signup = $jwtAuth->signup($params->email, $pwd, true);
             }
         }
         return response()->json($signup, 200);
     }
-    public function update(Request $request){
+    public function update(Request $request)
+    {
         $token = $request->header('Authorization');
         $jwtAuth = new \JwtAuth();
         $checkToken = $jwtAuth->checkToken($token);
         $json = $request->input('json', null);
         $params_array = json_decode($json, true);
-        if($checkToken && !empty($params_array)){
+        if ($checkToken && !empty($params_array)) {
             $user = $jwtAuth->checkToken($token, true);
             $validate = \Validator::make($params_array, [
                 'name' => 'required|alpha',
                 'surname' => 'required|alpha',
-                'email' => 'required|email|unique:users,'.$user->sub
+                'email' => 'required|email|unique:users,' . $user->sub
             ]);
             unset($params_array['id']);
             unset($params_array['role']);
@@ -104,7 +109,7 @@ class UserController extends Controller
                 'user' => $user,
                 'changes' => $params_array
             );
-        }else{
+        } else {
             $data  = array(
                 'code' => 400,
                 'status' => 'error',
@@ -113,19 +118,20 @@ class UserController extends Controller
         }
         return response()->json($data, $data['code']);
     }
-    public function upload(Request $request){
+    public function upload(Request $request)
+    {
         $image = $request->file('file0');
         $validate = \Validator::make($request->all(), [
             'file0' => 'required|image|mimes:jpg,jpeg,gif'
         ]);
-        if(!$image || $validate->fails()){
+        if (!$image || $validate->fails()) {
             $data = array(
                 'code' => 400,
                 'status' => 'success',
                 'message' => "Error al subir imagen"
             );
-        }else{
-            $image_name = time().$image->getClientOriginalName();
+        } else {
+            $image_name = time() . $image->getClientOriginalName();
             \Storage::disk('users')->put($image_name, \File::get($image));
             $data = array(
                 'code' => 200,
@@ -134,5 +140,36 @@ class UserController extends Controller
             );
         }
         return response($data, $data['code'])->header('Content-Type', 'text/plain');
+    }
+    public function getImage($filename){
+        $isset = \Storage::disk('users')->exists($filename);
+        if($isset){
+            $file = \Storage::disk('users')->get($filename);
+            return new Response($file, 200);
+        }else{
+            $data = array(
+                'code' => 404,
+                'status' => 'error',
+                'message' => 'La imagen no existe'
+            );
+            return response($data, $data['code'])->header('Content-Type', 'text/plain');
+        }
+    }
+    public function detail($id){
+        $user = User::find($id);
+        if(is_object($user)){
+            $data = array(
+                'code' => 200,
+                'status' => 'succes',
+                'user' => $user
+            );
+        }else{
+            $data = array(
+                'code' => 404,
+                'status' => 'error',
+                'message' => 'El usuario no existe'
+            );
+        }
+        return response()->json($data, $data['code']);
     }
 }
