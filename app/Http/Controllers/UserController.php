@@ -77,20 +77,48 @@ class UserController extends Controller
                 $signup = $jwtAuth->signup($params->email, $pwd, true);
             }
         }
-        $email = 'omar_23_co@hotmail.com';
-        $password = 'omar231198';
-        $pwd = hash('sha256', $password);
         return response()->json($signup, 200);
     }
     public function update(Request $request){
         $token = $request->header('Authorization');
         $jwtAuth = new \JwtAuth();
         $checkToken = $jwtAuth->checkToken($token);
-        if($checkToken){
-            echo "<h1>Login correcto</h1>";
+        $json = $request->input('json', null);
+        $params_array = json_decode($json, true);
+        if($checkToken && !empty($params_array)){
+            $user = $jwtAuth->checkToken($token, true);
+            $validate = \Validator::make($params_array, [
+                'name' => 'required|alpha',
+                'surname' => 'required|alpha',
+                'email' => 'required|email|unique:users,'.$user->sub
+            ]);
+            unset($params_array['id']);
+            unset($params_array['role']);
+            unset($params_array['password']);
+            unset($params_array['create_at']);
+            unset($params_array['remember_token']);
+            $user_update = User::where('id', $user->sub)->update($params_array);
+            $data  = array(
+                'code' => 200,
+                'status' => 'succes',
+                'user' => $user,
+                'changes' => $params_array
+            );
         }else{
-            echo "<h1>Login incorrecto</h1>";
+            $data  = array(
+                'code' => 400,
+                'status' => 'error',
+                'message' => 'El usuario no está identificado'
+            );
         }
-        die();
+        return response()->json($data, $data['code']);
+    }
+    public function upload(Request $request){
+        $data = array(
+            'code' => 400,
+            'status' => 'success',
+            'message' => ""
+        );
+        return response($data, $data['code'])->header('Content-Type', 'text/plain');
     }
 }
